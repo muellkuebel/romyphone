@@ -1,6 +1,6 @@
-// Avafon V1.02 Service Worker – generiert von scripts/build.mjs
-const VERSION = "V1.02";
-const CACHE = "romyfon-v1.02";
+// Avafon V1.03 Service Worker – generiert von scripts/build.mjs
+const VERSION = "V1.03";
+const CACHE = "romyfon-v1.03";
 const MEDIA_PREFIX = "romyfon-media-";
 const SHELL = [
   "./",

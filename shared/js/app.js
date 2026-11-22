@@ -1,4 +1,4 @@
-// Avafon & Romyfon V1.02 – eine Codebasis, zwei Apps. Die Seite (ava/romy)
+// Avafon & Romyfon V1.03 – eine Codebasis, zwei Apps. Die Seite (ava/romy)
 // kommt aus avafon/side.js bzw. romyfon/side.js.
 //
 // Bedienung (Kleinkind, ~2 Jahre): Auf dem Bildschirm ist nur das Foto des
@@ -85,6 +85,11 @@ const ui = {
   btnSleep: $("btn-sleep"),
   night: $("night"),
   otherSleep: $("other-sleep"),
+  dockHome: $("dock-home"),
+  dockIncoming: $("dock-incoming"),
+  dockCall: $("dock-call"),
+  pulse: $("pulse"),
+  localVideoEl: $("local-video"),
 };
 
 const OTHER_NAME = window.AVAROMY_SIDE?.otherName || (SIDE.other === "romy" ? "Romy" : "Ava");
@@ -198,6 +203,188 @@ function placePhotos() {
     img.style.height = `${p.height}px`;
     img.classList.add("is-placed");
   }
+  // V1.03: Gesicht in Bildschirmkoordinaten (#app) – Texte bleiben draußen.
+  const fb = meta.faceBox;
+  state.faceRect = {
+    l: p.left + fb.x0 * p.width,
+    t: p.top + fb.y0 * p.height,
+    r: p.left + fb.x1 * p.width,
+    b: p.top + fb.y1 * p.height,
+  };
+  if (ui.pulse) {
+    ui.pulse.style.left = `${p.left + meta.focus.x * p.width}px`;
+    ui.pulse.style.top = `${p.top + meta.focus.y * p.height}px`;
+  }
+  layoutDocks();
+}
+
+// ---------------------------------------------------------------------------
+// V1.03 Text-Dock: alle Texte (… wird angerufen, Verbinden …, … ruft an,
+// Tippen zum Annehmen, … schläft, Hinweise) liegen garantiert neben dem
+// Gesicht: unten (neben/über den Knöpfen) oder oben, notfalls kleiner.
+
+const DOCK_SCALES = [1, 0.86, 0.74, 0.62, 0.52];
+let insetProbe = null;
+function insets() {
+  if (!insetProbe) {
+    insetProbe = document.createElement("div");
+    insetProbe.setAttribute("aria-hidden", "true");
+    insetProbe.style.cssText =
+      "position:absolute;left:0;top:0;width:0;visibility:hidden;pointer-events:none;" +
+      "height:var(--bar-h,0px);padding-bottom:calc(var(--safe-b,0px) + var(--ios-gap,0px))";
+    ui.app.appendChild(insetProbe);
+  }
+  const cs = getComputedStyle(insetProbe);
+  return { top: parseFloat(cs.height) || 0, bottom: parseFloat(cs.paddingBottom) || 0 };
+}
+
+function relRect(el) {
+  const r = el.getBoundingClientRect();
+  const a = ui.app.getBoundingClientRect();
+  return { l: r.left - a.left, t: r.top - a.top, r: r.right - a.left, b: r.bottom - a.top };
+}
+
+function shownRect(el) {
+  if (!el || el.hidden || el.closest("[hidden]")) return null;
+  const cs = getComputedStyle(el);
+  if (cs.display === "none" || cs.visibility === "hidden" || Number(cs.opacity) === 0) return null;
+  const r = relRect(el);
+  return r.r - r.l > 0 && r.b - r.t > 0 ? r : null;
+}
+
+function hits(a, b, m = 0) {
+  return a.l < b.r + m && a.r > b.l - m && a.t < b.b + m && a.b > b.t - m;
+}
+
+function overlapArea(a, b) {
+  const w = Math.min(a.r, b.r) - Math.max(a.l, b.l);
+  const h = Math.min(a.b, b.b) - Math.max(a.t, b.t);
+  return w > 0 && h > 0 ? w * h : 0;
+}
+
+function faceVisibleOn(screen) {
+  if (!state.faceRect) return false;
+  if (screen === "home") return !state.sleep[SIDE.me];
+  if (screen === "incoming") return true;
+  if (screen === "call") return !ui.screens.call.classList.contains("is-connected");
+  return false;
+}
+
+function obstaclesOn(screen) {
+  const els = {
+    home: [ui.btnSleep],
+    incoming: [ui.btnDecline],
+    call: [ui.btnHangup, ui.localVideoEl],
+  }[screen] || [];
+  const out = els.map(shownRect).filter(Boolean);
+  out.push({ l: 0, t: 0, r: 96, b: 96 + insets().top }); // versteckte Einstellungs-Ecke
+  return out;
+}
+
+function dockCandidates(screen, w, h, obstacles, forToast) {
+  const ins = insets();
+  const bottomGap = 36 + ins.bottom;
+  const topGap = 22 + ins.top;
+  const lower = obstacles.filter((o) => o.b > h * 0.6);
+  const upper = obstacles.filter((o) => o.t < h * 0.4);
+  const cx = w / 2;
+  const sideHalf = (list) => {
+    // Halbe Breite, die mittig zwischen seitlichen Knöpfen frei bleibt.
+    let half = cx - 24;
+    for (const o of list) {
+      if (o.l > cx) half = Math.min(half, o.l - cx - 18);
+      else if (o.r < cx) half = Math.min(half, cx - o.r - 18);
+      else return 0; // Knopf in der Mitte
+    }
+    return half;
+  };
+  const halfLow = sideHalf(lower);
+  const halfTop = sideHalf(upper);
+  const lowTop = lower.length ? Math.min(...lower.map((o) => o.t)) : h;
+  const c = [];
+  const bottomSide = halfLow > 140 ? [{ bottom: bottomGap, max: 2 * halfLow }] : [];
+  const above = [{ bottom: h - lowTop + 16, max: w - 48 }];
+  const top = halfTop > 140 ? [{ top: topGap, max: 2 * halfTop }] : [];
+  const landscape = w > h;
+  const withRow = (list) => (screen === "incoming" && landscape && !forToast ? [...list.map((x) => ({ ...x, row: true })), ...list] : list);
+  if (forToast) c.push(...top, ...above, ...bottomSide);
+  else c.push(...withRow(bottomSide), ...above, ...withRow(top));
+  return c;
+}
+
+function placeOne(el, screen, extraAvoid, forToast) {
+  if (!el) return null;
+  el.classList.remove("is-placed");
+  const anyText = (el.textContent || "").trim() && !el.hidden && [...el.children].some((ch) => !ch.hidden) ||
+    (forToast && !el.hidden && el.textContent.trim());
+  if (!anyText) {
+    el.classList.add("is-placed");
+    return null;
+  }
+  const { w, h } = viewSize();
+  const face = faceVisibleOn(screen) ? state.faceRect : null;
+  const obstacles = obstaclesOn(screen);
+  const avoid = [...obstacles, ...extraAvoid];
+  const cands = dockCandidates(screen, w, h, obstacles, forToast);
+  const apply = (cand, scale) => {
+    el.style.setProperty("--dock-scale", String(scale));
+    el.style.maxWidth = `${Math.max(120, cand.max)}px`;
+    el.style.top = cand.top != null ? `${cand.top}px` : "auto";
+    el.style.bottom = cand.bottom != null ? `${cand.bottom}px` : "auto";
+    el.style.left = "50%";
+    el.style.transform = "translateX(-50%)";
+    el.classList.toggle("is-row", !!cand.row);
+    // Messen (unsichtbar, aber mit Layout)
+    el.style.visibility = "hidden";
+    el.classList.add("is-placed");
+    const r = relRect(el);
+    el.classList.remove("is-placed");
+    el.style.visibility = "";
+    return r;
+  };
+  let best = null;
+  for (const scale of DOCK_SCALES) {
+    for (const cand of cands) {
+      const r = apply(cand, scale);
+      const inside = r.l >= -0.5 && r.r <= w + 0.5 && r.t >= -0.5 && r.b <= h + 0.5;
+      const faceHit = face ? overlapArea(r, { l: face.l - 10, t: face.t - 10, r: face.r + 10, b: face.b + 10 }) : 0;
+      const objHit = avoid.some((o) => hits(r, o, 6));
+      if (inside && !faceHit && !objHit) {
+        el.classList.add("is-placed");
+        el.dataset.dock = `${cand.top != null ? "top" : "bottom"}${cand.row ? "-row" : ""}@${scale}`;
+        return r;
+      }
+      const score = faceHit * 10 + (objHit ? 5000 : 0) + (inside ? 0 : 1e6);
+      if (!best || score < best.score) best = { cand, scale, score };
+    }
+  }
+  const r = apply(best.cand, best.scale);
+  el.classList.add("is-placed");
+  el.dataset.dock = "fallback";
+  return r;
+}
+
+let docking = false;
+function layoutDocks() {
+  if (docking) return;
+  docking = true;
+  try {
+    const screen = state.screen;
+    const dock = { home: ui.dockHome, incoming: ui.dockIncoming, call: ui.dockCall }[screen];
+    for (const d of [ui.dockHome, ui.dockIncoming, ui.dockCall]) if (d && d !== dock) d.classList.add("is-placed");
+    const r = placeOne(dock, screen, [], false);
+    placeOne(ui.toast, screen, r ? [r] : [], true);
+  } finally {
+    docking = false;
+  }
+}
+
+const dockObserver = new MutationObserver(() => layoutDocks());
+for (const el of [ui.dockHome, ui.dockIncoming, ui.dockCall, ui.toast]) {
+  if (el) dockObserver.observe(el, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ["hidden"] });
+}
+for (const el of Object.values(ui.screens)) {
+  dockObserver.observe(el, { attributes: true, attributeFilter: ["class", "hidden"] });
 }
 
 let layoutTimer = null;
@@ -277,7 +464,9 @@ async function loadPhotos() {
   const webpOk = document.createElement("canvas").toDataURL("image/webp").startsWith("data:image/webp");
   for (const orient of ["landscape", "portrait"]) {
     const v = side.photos[orient];
-    state.photoMeta[orient] = { w: v.w, h: v.h, focus: v.focus || { x: 0.5, y: 0.45 } };
+    const focus = v.focus || { x: 0.5, y: 0.45 };
+    const faceBox = v.faceBox || { x0: Math.max(0, focus.x - 0.16), y0: Math.max(0, focus.y - 0.22), x1: Math.min(1, focus.x + 0.16), y1: Math.min(1, focus.y + 0.22) };
+    state.photoMeta[orient] = { w: v.w, h: v.h, focus, faceBox };
     state.photoUrls[orient] = await mediaUrl(state.code, webpOk ? v.webp : v.jpg);
   }
   placePhotos();
@@ -669,7 +858,13 @@ function onTakenElsewhere() {
   goHome();
 }
 
-function onRemoteHangup() {
+function onRemoteHangup(d) {
+  // V1.03: Gegenseite ist während des Klingelns eingeschlafen.
+  if (d?.reason === "sleep" && state.outgoing && !state.connected) {
+    hangup(true);
+    toast(`${OTHER_NAME} schläft`);
+    return;
+  }
   if (state.pending && !state.inCall) {
     // Anrufer hat aufgegeben, während es klingelte.
     stopRingtone();
@@ -980,6 +1175,8 @@ window.__avaromyTest = {
   side: SIDE,
   screen: () => state.screen,
   ready: () => !!(state.config && ui.photos[0].naturalWidth),
+  faceRect: () => (state.faceRect ? { ...state.faceRect } : null),
+  faceVisible: () => faceVisibleOn(state.screen),
   photoInfo: () => {
     const img = ui.photos[0];
     const r = img.getBoundingClientRect();

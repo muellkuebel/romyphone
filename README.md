@@ -1,4 +1,4 @@
-# Avafon V1.02
+# Avafon V1.03
 
 Avafon ist die App auf Romys iPad: Sie zeigt nur das Foto von Ava. Foto antippen ruft Romyfon an.
 
