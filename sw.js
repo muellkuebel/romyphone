@@ -1,6 +1,6 @@
-// Romyfon V1.00 Service Worker – generiert von scripts/build.mjs
-const VERSION = "V1.00";
-const CACHE = "romyfon-v1.00";
+// Romyfon V1.01 Service Worker – generiert von scripts/build.mjs
+const VERSION = "V1.01";
+const CACHE = "romyfon-v1.01";
 const MEDIA_PREFIX = "romyfon-media-";
 const SHELL = [
   "./",

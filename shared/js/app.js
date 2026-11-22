@@ -1,4 +1,4 @@
-// Avafon & Romyfon V1.00 – eine Codebasis, zwei Apps. Die Seite (ava/romy)
+// Avafon & Romyfon V1.01 – eine Codebasis, zwei Apps. Die Seite (ava/romy)
 // kommt aus avafon/side.js bzw. romyfon/side.js.
 //
 // Bedienung (Kleinkind, ~2 Jahre): Auf dem Bildschirm ist nur das Foto des
@@ -82,6 +82,9 @@ const ui = {
   btnReset: $("btn-reset"),
   btnSettingsClose: $("btn-settings-close"),
   toast: $("toast"),
+  btnSleep: $("btn-sleep"),
+  night: $("night"),
+  otherSleep: $("other-sleep"),
 };
 
 const OTHER_NAME = window.AVAROMY_SIDE?.otherName || (SIDE.other === "romy" ? "Romy" : "Ava");
@@ -111,7 +114,10 @@ const state = {
   outgoingTimer: null,
   failTimer: null,
   lastTap: 0,
+  sleep: { ava: false, romy: false }, // V1.01 Schlummermodus (vom Worker)
 };
+
+const ME_NAME = window.AVAROMY_SIDE?.meName || (SIDE.me === "ava" ? "Ava" : "Romy");
 
 // ---------------------------------------------------------------------------
 // Bildschirme
@@ -302,6 +308,7 @@ async function afterAuth(cfg, code) {
   state.config = cfg;
   state.code = normalizeCode(code);
   localStorage.setItem(STORAGE_CODE, state.code);
+  applySleep(cfg.sleep);
   await loadPhotos();
   // Kinder-iPads: wie Hannas iPad – Keep-Alive immer erlaubt, Bildschirm wach.
   setKeepAliveAllowed(true);
@@ -371,6 +378,14 @@ function connectSignaling() {
   s.on("taken", onTakenElsewhere);
   s.on("callee-offline", onCalleeOffline);
   s.on("callee-ringing", onCalleeRinging);
+  s.on("sleep-state", (d) => applySleep(d.sleep));
+  s.on("callee-sleeping", (d) => {
+    applySleep(d.sleep);
+    if (state.outgoing && !state.connected) {
+      hangup(true);
+      toast(`${OTHER_NAME} schläft`);
+    }
+  });
   s.on("presence", (d) => {
     state.otherOnline = !!d.otherOnline;
     updateHomeStatus();
@@ -406,6 +421,7 @@ function endExpect() {
 // Anrufen (Foto antippen)
 
 function onPhotoTap() {
+  if (anySleeping()) return; // Schlummermodus: kein Anruf
   const now = Date.now();
   if (now - state.lastTap < 900) return; // Kleinkind tippt mehrfach
   state.lastTap = now;
@@ -450,6 +466,7 @@ function peerHandlers() {
 async function startCall() {
   if (!state.config) return;
   if (state.inCall) return;
+  if (anySleeping()) return;
   // Die andere Seite ruft gerade an: annehmen statt zurückrufen.
   if (state.pending) {
     acceptIncoming();
@@ -539,6 +556,7 @@ function onRemoteDeclined() {
 
 function onRemoteCall(data) {
   if (!data?.sdp) return;
+  if (state.sleep[SIDE.me]) return; // schlafend: nie klingeln
   if (state.inCall && !state.outgoing) return; // schon im Gespräch
   if (state.inCall && state.connected) return;
   // Gleiches Angebot noch einmal (nach Neuverbinden): nur ICE ergänzen.
@@ -711,11 +729,59 @@ ui.btnHangup.addEventListener("click", (ev) => {
 });
 
 // ---------------------------------------------------------------------------
+// V1.01 Schlummermodus: Mond-Knopf schaltet die eigene Seite schlafen. Die
+// andere App zeigt dann „Ava schläft“ und kann nicht anrufen (der Worker
+// lehnt Anrufe an eine schlafende Seite ab: kein Klingeln, kein Push).
+
+function anySleeping() {
+  return !!(state.sleep[SIDE.me] || state.sleep[SIDE.other]);
+}
+
+function applySleep(sleep) {
+  if (!sleep) return;
+  state.sleep = { ava: !!sleep.ava, romy: !!sleep.romy };
+  const me = state.sleep[SIDE.me];
+  const other = state.sleep[SIDE.other];
+  const home = ui.screens.home;
+  home.classList.toggle("is-me-sleeping", me);
+  home.classList.toggle("is-other-sleeping", other && !me);
+  show(ui.night, me);
+  show(ui.otherSleep, other && !me);
+  ui.photoBtn.disabled = me || other;
+  ui.photoBtn.setAttribute("aria-label", me ? "Schlummermodus" : other ? `${OTHER_NAME} schläft` : `${OTHER_NAME} anrufen`);
+  ui.btnSleep.setAttribute("aria-pressed", me ? "true" : "false");
+  ui.btnSleep.setAttribute("aria-label", me ? "Aufwachen (Schlummermodus aus)" : "Schlummermodus einschalten");
+  // Klingelt es gerade bei mir und ich schlafe jetzt: aufhören.
+  if (me && state.pending && !state.inCall) {
+    stopRingtone();
+    state.pending = null;
+    state.pendingIce = [];
+    goHome();
+  }
+  // Ich rufe gerade an und die andere Seite schläft jetzt ein: abbrechen.
+  if ((other || me) && state.outgoing && !state.connected && !state.pc?.remoteDescription) {
+    hangup(false);
+    if (other) toast(`${OTHER_NAME} schläft`);
+  }
+  syncWakeLock();
+  if (!ui.sheet.hidden) paintSettings();
+}
+
+ui.btnSleep.addEventListener("click", (ev) => {
+  ev.stopPropagation();
+  const on = !state.sleep[SIDE.me];
+  unlockAudio(true);
+  applySleep({ ...state.sleep, [SIDE.me]: on }); // sofort anzeigen, Worker bestätigt
+  state.signaling.send({ type: "sleep", on });
+});
+
+// ---------------------------------------------------------------------------
 // Bildschirm wach halten (wie Hannas iPad)
 
 let wakeLock = null;
 async function syncWakeLock() {
-  const want = document.visibilityState === "visible" && !!state.config && !!navigator.wakeLock;
+  // Im Schlummermodus darf das iPad den Bildschirm ausschalten.
+  const want = document.visibilityState === "visible" && !!state.config && !!navigator.wakeLock && !state.sleep[SIDE.me];
   if (want && !wakeLock) {
     try {
       wakeLock = await navigator.wakeLock.request("screen");
@@ -940,6 +1006,7 @@ window.__avaromyTest = {
   audio: () => ({ ctx: audioContextState(), ...audioDebug() }),
   signaling: () => state.signaling.debug(),
   otherOnline: () => state.otherOnline,
+  sleep: () => ({ ...state.sleep }),
   openSettings: () => openSettings(),
   settingsOpen: () => !ui.sheet.hidden,
   pauseSignaling: () => state.signaling.pause(),
