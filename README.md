@@ -1,9 +1,9 @@
-# Romyfon V1.01
+# Avafon V1.02
 
-Romyfon ist die App auf Romys iPad: Sie zeigt nur das Foto von Ava. Foto antippen ruft Avafon an.
+Avafon ist die App auf Romys iPad: Sie zeigt nur das Foto von Ava. Foto antippen ruft Romyfon an.
 
 - Adresse: https://muellkuebel.github.io/romyphone/
-- Gegenstück: Avafon (https://muellkuebel.github.io/avaphone/)
+- Gegenstück: Romyfon (https://muellkuebel.github.io/avaphone/)
 - Signalisierung, Push und Fotos: Cloudflare Worker `avaromyfon` (Fotos nur mit Familien-Code).
 
 Dieses Repo enthält nur die gebaute App (generiert aus dem Projekt `avaromyfon`, scripts/build.mjs).

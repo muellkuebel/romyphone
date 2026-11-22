@@ -1,4 +1,4 @@
-// Avafon & Romyfon V1.01 – eine Codebasis, zwei Apps. Die Seite (ava/romy)
+// Avafon & Romyfon V1.02 – eine Codebasis, zwei Apps. Die Seite (ava/romy)
 // kommt aus avafon/side.js bzw. romyfon/side.js.
 //
 // Bedienung (Kleinkind, ~2 Jahre): Auf dem Bildschirm ist nur das Foto des

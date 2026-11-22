@@ -2,15 +2,15 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <!-- Romyfon V1.01 · Romys iPad: zeigt Ava, ruft Avafon an. Generiert von scripts/build.mjs. -->
+  <!-- Avafon V1.02 · Romys iPad: zeigt Ava, ruft Romyfon an. Generiert von scripts/build.mjs. -->
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="Romyfon">
+  <meta name="apple-mobile-web-app-title" content="Avafon">
   <meta name="theme-color" content="#000000">
   <meta name="format-detection" content="telephone=no">
-  <title>Romyfon</title>
+  <title>Avafon</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
@@ -30,7 +30,7 @@
     <section id="screen-code" class="screen screen-cream" hidden>
       <div class="panel">
         <img class="panel-icon" src="./icons/icon-192.png" alt="" draggable="false">
-        <h1>Romyfon einrichten</h1>
+        <h1>Avafon einrichten</h1>
         <p class="lead">Bitte den Familien-Code eingeben. Das macht ein Erwachsener nur einmal.</p>
         <form id="code-form" autocomplete="off">
           <input id="code-input" name="code" inputmode="text" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="Familien-Code" aria-label="Familien-Code">
@@ -86,13 +86,13 @@
     <div id="settings-sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
       <div class="sheet-card">
         <h2 id="settings-title">Einstellungen</h2>
-        <p class="sheet-meta">Romyfon V1.01 · Romys iPad · ruft Avafon an</p>
+        <p class="sheet-meta">Avafon V1.02 · Romys iPad · ruft Romyfon an</p>
         <ul class="status-list">
           <li><span>Verbindung</span><b id="st-conn">–</b></li>
-          <li><span>Avafon</span><b id="st-other">–</b></li>
+          <li><span>Romyfon</span><b id="st-other">–</b></li>
           <li><span>Mitteilungen</span><b id="st-push">–</b></li>
         </ul>
-        <p id="install-hint" class="hint" hidden>Für Mitteilungen Romyfon in Safari über <b>Teilen → Zum Home-Bildschirm</b> hinzufügen und von dort öffnen.</p>
+        <p id="install-hint" class="hint" hidden>Für Mitteilungen Avafon in Safari über <b>Teilen → Zum Home-Bildschirm</b> hinzufügen und von dort öffnen.</p>
         <div class="sheet-actions">
           <button type="button" id="btn-notify" class="pill pill-green" hidden>Mitteilungen erlauben</button>
           <button type="button" id="btn-push-test" class="pill pill-ink" hidden>Test-Mitteilung senden</button>

@@ -1,6 +1,6 @@
 // Avafon & Romyfon – gemeinsame Einstellungen. Die Seite (ava/romy) setzt
 // avafon/side.js bzw. romyfon/side.js als window.AVAROMY_SIDE.
-export const VERSION = "V1.01";
+export const VERSION = "V1.02";
 
 const S = (typeof window !== "undefined" && window.AVAROMY_SIDE) || { me: "ava", other: "romy", app: "Avafon" };
 export const SIDE = Object.freeze({
@@ -14,7 +14,7 @@ export const SIDE = Object.freeze({
 const P = SIDE.app.toLowerCase();
 export const STORAGE_CODE = `${P}-family-code`;
 export const STORAGE_DEVICE = `${P}-device-id`;
-export const MEDIA_CACHE = `${P}-media-v1.01`;
+export const MEDIA_CACHE = `${P}-media-v1.02`;
 
 export function apiOrigin() {
   if (typeof window !== "undefined" && window.__AVAROMY_API__) return window.__AVAROMY_API__;

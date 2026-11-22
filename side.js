@@ -1,2 +1,2 @@
-// Romyfon V1.01 – generiert von scripts/build.mjs
-window.AVAROMY_SIDE = {"me":"romy","other":"ava","app":"Romyfon","otherApp":"Avafon","meName":"Romy","otherName":"Ava"};
+// Avafon V1.02 – generiert von scripts/build.mjs
+window.AVAROMY_SIDE = {"me":"romy","other":"ava","app":"Romyfon","label":"Avafon","otherApp":"Romyfon","meName":"Romy","otherName":"Ava"};
